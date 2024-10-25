@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>Blog</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        .blogtextinput {
+            width: 500px;
+            height: 200px;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .message {
+            border: 2px solid;
+            border-radius: 5px;
+        }
+        .message-success {
+            border-color: green;
+        }
+        .message-failure {
+            border-color: red;
+        }
+
+        .blogpost {
+            border: 2px solid gray;
+            border-radius: 5px;
+            display: grid;
+            margin: 5px;
+            padding: 2px;
+
+            grid-template:
+                "blogavatar blogauthor" 1.5rem
+                "blogavatar blogdate" 1.5rem
+                "blogimage blogimage" 5rem
+                "blogtext blogtext" auto / 3rem auto;
+        }
+        .blogavatar {
+            align-self: center;
+            justify-self: center;
+            grid-area: blogavatar;
+        }
+        .blogauthor {
+            grid-area: blogauthor;
+        }
+        .blogdate {
+            grid-area: blogdate;
+        }
+        .blogimage {
+            align-self: center;
+            justify-self: center;
+            grid-area: blogimage;
+        }
+        .blogtext {
+            grid-area: blogtext;
+        }
+    </style>
+</head>
+<body>
+    <h1>Blog</h1>
+
+    {% match new_post_status %}
+        {% when Some with (Ok(())) %}
+            <div class="message message-success">
+                Post added sucessfully.
+            </div>
+        {% when Some with (Err(fail_message)) %}
+            <div class="message message-failure">
+                Failure while adding post: {{ fail_message }}.
+            </div>
+        {% when None %}
+    {% endmatch %}
+
+    <h2>Write a new blogpost</h2>
+    <form action="/post" method="post" enctype="multipart/form-data">
+        <label for="user">User name: </label>
+        <input type="text" name="user" required/>
+        <br/>
+        <label for="avatar">User avatar image URL (PNG format, optional): </label>
+        <input type="url" name="avatar"/>
+        <br/>
+        <label for="date">Date of publication: </label>
+        <input type="date" name="date" required/>
+        <br/>
+        <label for="image">Post image (PNG format, max. 4 MiB, optional): </label>
+        <input type="file" name="image"/>
+        <br/>
+        <label for="text">Main text:</label>
+        <br/>
+        <textarea class="blogtextinput" name="text"></textarea>
+        <br/>
+        <input type="submit" value="Post"/>
+    </form>
+
+    <h2>Blogposts</h2>
+    {% match posts %}
+        {% when Ok(posts) %}
+            {% for post in posts %}
+                <div class="blogpost">
+                    <img class="blogavatar" src="{{ post.user_avatar_path }}"></img>
+                    <div class="blogauthor">Posted by {{ post.user }}.</div>
+                    <div class="blogdate">Posted on {{ post.post_date }}.</div>
+                    <img class="blogimage" src="{{ post.post_image_path }}"/>
+                    <div class="blogtext">{{ post.post_text|e|linebreaks|safe }}</div>
+                </div>
+            {% endfor %}
+        {% when Err(err) %}
+        <div class="message message-failure">
+            Failure while fetching posts: {{ err }}.
+        </div>
+    {% endmatch %}
+</body>
+</html>
