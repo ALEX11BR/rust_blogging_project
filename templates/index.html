@@ -36,13 +36,16 @@
             grid-template:
                 "blogavatar blogauthor" 1.5rem
                 "blogavatar blogdate" 1.5rem
-                "blogimage blogimage" 5rem
+                "blogimage blogimage" auto
                 "blogtext blogtext" auto / 3rem auto;
         }
         .blogavatar {
             align-self: center;
             justify-self: center;
             grid-area: blogavatar;
+
+            max-width: 3rem;
+            max-height: 3rem;
         }
         .blogauthor {
             grid-area: blogauthor;
@@ -54,6 +57,8 @@
             align-self: center;
             justify-self: center;
             grid-area: blogimage;
+
+            max-width: 100%;
         }
         .blogtext {
             grid-area: blogtext;

@@ -8,14 +8,12 @@ askama_axum = "0.4.0"
 askama = "0.12.1"
 axum = { version = "0.7.7", features = ["macros"] }
 tokio = { version = "1.41.0", features = ["full"] }
-tower = { version = "0.5.1", features = ["util"] }
 tower-http = { version = "0.6.1", features = ["fs", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde = { version = "1.0.213", features = ["derive"] }
-axum_typed_multipart = { version = "0.13.1", default-features = false, features = ["tempfile_3"] }
-tempfile = "3.13.0"
-axum-extra = { version = "0.9.4", features = ["cookie"] }
+axum_typed_multipart = { version = "0.13.1", default-features = false }
 tower-sessions = "0.13.0"
 reqwest = "0.12.8"
 sqlx = { version = "0.8.2", features = ["runtime-tokio", "sqlite"] }
+regex = "1.11.1"

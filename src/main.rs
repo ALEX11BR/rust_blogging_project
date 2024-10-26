@@ -1,14 +1,17 @@
-use std::error::Error;
+use std::{error::Error, path::Path};
 
 use askama_axum::Template;
 use axum::{
+    body::Bytes,
     extract::DefaultBodyLimit,
     response::Redirect,
-    routing::{get, post}, Router,
+    routing::{get, post},
+    Router,
 };
 use axum_typed_multipart::{FieldData, TryFromMultipart, TypedMultipart};
+use regex::Regex;
 use sqlx::{sqlite::SqliteConnection, Connection, Row};
-use tempfile::NamedTempFile;
+use tokio::fs;
 use tower_http::{services::ServeDir, trace::TraceLayer};
 use tower_sessions::{cookie::time::Duration, Expiry, MemoryStore, Session, SessionManagerLayer};
 
@@ -37,10 +40,20 @@ async fn main() {
 
     {
         let mut conn = SqliteConnection::connect(DATABASE).await.unwrap();
-        sqlx::query("CREATE TABLE IF NOT EXISTS posts (
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS posts (
             id INTEGER PRIMARY KEY,
-            content TEXT
-        )").execute(&mut conn).await.unwrap();
+            author STRING,
+            date STRING,
+            hasimage BOOLEAN,
+            hasavatar BOOLEAN,
+            content TEXT,
+            visible BOOLEAN
+        )",
+        )
+        .execute(&mut conn)
+        .await
+        .unwrap();
     }
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
@@ -74,34 +87,101 @@ async fn return_home() -> Redirect {
 
 async fn get_posts() -> Result<Vec<BlogPost>, Box<dyn Error>> {
     let mut conn = SqliteConnection::connect(DATABASE).await?;
-    let rows = sqlx::query("SELECT content FROM posts").fetch_all(&mut conn).await?;
+    let rows = sqlx::query("SELECT id, author, date, hasimage, hasavatar, content FROM posts WHERE visible = TRUE ORDER BY date DESC")
+        .fetch_all(&mut conn)
+        .await?;
 
-    Ok(rows.iter().map(|row| {
-        let text = row.try_get("content").unwrap_or("");
+    Ok(rows
+        .iter()
+        .map(|row| {
+            let id = row.try_get("id").unwrap_or(0);
+            let user = row.try_get("author").unwrap_or("");
+            let image_path = if row.try_get("hasimage").unwrap_or(false) {
+                format!("/assets/images/{}.png", id)
+            } else {
+                "".into()
+            };
+            let date = row.try_get("date").unwrap_or("");
+            let avatar_path = if row.try_get("hasavatar").unwrap_or(false) {
+                format!("/assets/avatars/{}.png", id)
+            } else {
+                "".into()
+            };
+            let text = row.try_get("content").unwrap_or("");
 
-        BlogPost { user: "aas".into(), user_avatar_path: "".into(), post_date: "2024-11-11".into(), post_image_path: "sssss".into(), post_text: text.into() }
-    }).collect())
+            BlogPost {
+                user: user.into(),
+                user_avatar_path: avatar_path,
+                post_date: date.into(),
+                post_image_path: image_path,
+                post_text: text.into(),
+            }
+        })
+        .collect())
 }
 async fn insert_post(data: TypedMultipart<PostMultipartParam>) -> Result<(), Box<dyn Error>> {
-    if !data.avatar.is_empty() {
+    let date_regex = Regex::new("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")?;
+    if !date_regex.is_match(&data.date) {
+        return Err("The date must be in the YYYY-MM-DD format".into());
+    }
+
+    let avatar_bytes = if !data.avatar.is_empty() {
         let avatar_pic = reqwest::get(&data.avatar).await?;
         let avatar_type = avatar_pic
             .headers()
             .get("Content-Type")
-            .ok_or("Avatar isn't a PNG".to_string())
-            .and_then(|val| val.to_str().map_err(|err| err.to_string()))?;
+            .ok_or("Could not detect the avatar file type".to_string())?
+            .to_str()?;
         if avatar_type != "image/png" {
-            return Err("Avatar isn't a PNG.".into());
+            return Err("Avatar isn't a PNG".into());
         }
+
+        Some(avatar_pic.bytes().await?)
+    } else {
+        None
+    };
+
+    if !data.image.contents.is_empty()
+        && data.image.metadata.content_type != Some("image/png".into())
+    {
+        return Err("Post image isn't a PNG".into());
     }
 
     let mut conn = SqliteConnection::connect(DATABASE).await?;
-    let mut tx = conn.begin().await?;
 
-    let id = sqlx::query("INSERT INTO posts (content) VALUES ($1) RETURNING id").bind(&data.text).fetch_one(&mut *tx).await?.get::<i32, _>("id");
-    println!("{}", id);
+    let id = sqlx::query("INSERT INTO posts (author, date, content, visible) VALUES ($1, $2, $3, FALSE) RETURNING id")
+        .bind(&data.user)
+        .bind(&data.date)
+        .bind(&data.text)
+        .fetch_one(&mut conn)
+        .await?
+        .get::<i64, _>("id");
 
-    tx.commit().await?;
+    if let Some(ref avatar_bytes) = avatar_bytes {
+        fs::write(
+            Path::new("assets")
+                .join("avatars")
+                .join(format!("{}.png", id)),
+            avatar_bytes,
+        )
+        .await?;
+    }
+    if !data.image.contents.is_empty() {
+        fs::write(
+            Path::new("assets")
+                .join("images")
+                .join(format!("{}.png", id)),
+            &data.image.contents,
+        )
+        .await?;
+    }
+
+    sqlx::query("UPDATE posts SET hasimage = $1, hasavatar = $2, visible = TRUE WHERE id = $3")
+        .bind(!data.image.contents.is_empty())
+        .bind(avatar_bytes != None)
+        .bind(id)
+        .execute(&mut conn)
+        .await?;
 
     Ok(())
 }
@@ -128,6 +208,6 @@ struct PostMultipartParam {
     avatar: String,
     date: String,
     #[form_data(limit = "4MiB")]
-    image: Option<FieldData<NamedTempFile>>,
+    image: FieldData<Bytes>,
     text: String,
 }

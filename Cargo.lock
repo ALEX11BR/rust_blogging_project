@@ -195,29 +195,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "axum-extra"
-version = "0.9.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73c3220b188aea709cf1b6c5f9b01c3bd936bb08bd2b5184a12b35ac8131b1f9"
-dependencies = [
- "axum",
- "axum-core",
- "bytes",
- "cookie",
- "futures-util",
- "http",
- "http-body",
- "http-body-util",
- "mime",
- "pin-project-lite",
- "serde",
- "tower",
- "tower-layer",
- "tower-service",
- "tracing",
-]
-
-[[package]]
 name = "axum-macros"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -240,9 +217,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-util",
- "tempfile",
  "thiserror",
- "tokio",
 ]
 
 [[package]]
@@ -1495,9 +1470,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.11.0"
+version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "38200e5ee88914975b69f657f0801b6f6dccafd44fd9326302a4aaeecfacb1d8"
+checksum = "b544ef1b4eac5dc2db33ea63606ae9ffcfac26c1416a2806ae0bf5f56b201191"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -1622,14 +1597,12 @@ dependencies = [
  "askama",
  "askama_axum",
  "axum",
- "axum-extra",
  "axum_typed_multipart",
+ "regex",
  "reqwest",
  "serde",
  "sqlx",
- "tempfile",
  "tokio",
- "tower",
  "tower-http",
  "tower-sessions",
  "tracing",
